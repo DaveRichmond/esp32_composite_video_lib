@@ -234,7 +234,7 @@ static void setup_video_signal(VIDEO_MODE mode, DAC_FREQUENCY dac_frequency, uin
     {
         g_video_signal.frame_buffer_size_bytes = width_pixels*height_pixels*g_video_signal.bits_per_pixel/BITS_IN_BYTE;
     }
-    ESP_LOGD(TAG, "Bits per pixel: %u, %ux%u. FB size %u bytes ", g_video_signal.bits_per_pixel, g_video_signal.width_pixels, g_video_signal.height_pixels, g_video_signal.frame_buffer_size_bytes);
+    ESP_LOGD(TAG, "Bits per pixel: %u, %ux%u. FB size %lu bytes ", g_video_signal.bits_per_pixel, g_video_signal.width_pixels, g_video_signal.height_pixels, g_video_signal.frame_buffer_size_bytes);
 
     assert(g_video_signal.frame_buffer_size_bytes%4==0); //for 32 bit access (read/write 4 bytes at once)
 
@@ -243,45 +243,51 @@ static void setup_video_signal(VIDEO_MODE mode, DAC_FREQUENCY dac_frequency, uin
     g_video_signal.frame_buffer = (uint8_t*)heap_caps_calloc(g_video_signal.frame_buffer_size_bytes, sizeof(uint8_t), caps);
     if(NULL == g_video_signal.frame_buffer)
     {
-        ESP_LOGE(TAG, "Failed to allocate %u bytes for frame buffer", g_video_signal.frame_buffer_size_bytes);
+        ESP_LOGE(TAG, "Failed to allocate %lu bytes for frame buffer", g_video_signal.frame_buffer_size_bytes);
         heap_caps_print_heap_info(caps);
         assert(false);
     }
-    ESP_LOGI(TAG, "Allocated %u bytes for frame buffer", g_video_signal.frame_buffer_size_bytes);
+    ESP_LOGI(TAG, "Allocated %lu bytes for frame buffer", g_video_signal.frame_buffer_size_bytes);
 }
+
+// create a shim to the old api
+#define old_rtc_clk_apll_enable(enable, sdm0, sdm1, sdm2, o_div) \
+        rtc_clk_apll_coeff_set((o_div), (sdm0), (sdm1), (sdm2)); \
+        rtc_clk_apll_enable((enable));
+
 
 static void set_dac_frequency(void)
 {
     switch(g_video_signal.dac_frequency)
     {
         case DAC_FREQ_PAL_14_75MHz:
-            rtc_clk_apll_enable(1, 0xCD, 0xCC, 0x07, 2); //= 14.750004 MHz
+            old_rtc_clk_apll_enable(1, 0xCD, 0xCC, 0x07, 2); //= 14.750004 MHz
             ESP_LOGI(TAG, "DAC clock configured to 14.75 MHz. PAL 640 pixels.");
             break;
 
         case DAC_FREQ_PAL_7_357MHz:
-            rtc_clk_apll_enable(1, 0xCD, 0xCC, 0x07, 6); //= 7.375002 MHz
+            old_rtc_clk_apll_enable(1, 0xCD, 0xCC, 0x07, 6); //= 7.375002 MHz
             ESP_LOGI(TAG, "DAC clock configured to 7.35 MHz. PAL 320 pixels.");
             break;
 
         case DAC_FREQ_NTSC_12_273MHz: //=12272720
-            rtc_clk_apll_enable(1, 209, 69, 8, 3);
+            old_rtc_clk_apll_enable(1, 209, 69, 8, 3);
             ESP_LOGI(TAG, "DAC clock configured to 12.273 MHz. NTSC 640 pixels.");
             break;
 
         case DAC_FREQ_NTSC_6_136MHz: //=6.136360
             ESP_LOGI(TAG, "DAC clock configured to 6.136 MHz. NTSC 320 pixels.");
-            rtc_clk_apll_enable(1, 209, 69, 8, 8);
+            old_rtc_clk_apll_enable(1, 209, 69, 8, 8);
             break;
 
         case DAC_FREQ_PAL_NTSC_13_5MHz: //=13500001
             ESP_LOGI(TAG, "DAC clock configured to 13.5 MHz. BT.601 PAL/NTSC 640 pixels.");
-            rtc_clk_apll_enable(1, 205, 76, 20, 7);
+            old_rtc_clk_apll_enable(1, 205, 76, 20, 7);
             break;
 
         case DAC_FREQ_PAL_NTSC_6_75MHz: // =6.750000
             ESP_LOGI(TAG, "DAC clock configured to 6.75 MHz. BT.601 PAL/NTSC 320 pixels.");
-            rtc_clk_apll_enable(1, 205, 76, 20, 16);
+            old_rtc_clk_apll_enable(1, 205, 76, 20, 16);
             break;
 
         default:
@@ -488,7 +494,7 @@ void video_init(uint16_t width, uint16_t height, FRAME_BUFFER_FORMAT fb_format, 
 	setup_video_dac();
 
     ESP_LOGD(TAG,"rtc_clk_xtal_freq_get() = %d", (int)rtc_clk_xtal_freq_get());
-    ESP_LOGI(TAG,"DAC frequency: %u Hz", (uint32_t)g_video_signal.dac_frequency);
+    ESP_LOGI(TAG,"DAC frequency: %lu Hz", (uint32_t)g_video_signal.dac_frequency);
     ESP_LOGD(TAG,"DAC SYNC  level: %u", DAC_LEVEL_SYNC);
     ESP_LOGD(TAG,"DAC BLACK level: %u", DAC_LEVEL_BLACK);
     ESP_LOGD(TAG,"DAC WHITE level: %u", DAC_LEVEL_WHITE);
